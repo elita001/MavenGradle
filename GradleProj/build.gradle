@@ -1,0 +1,60 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin:'application'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile 'org.hibernate:hibernate-entitymanager:4.3.6.Final'
+	compile 'mysql:mysql-connector-java:5.1.32'
+	compile 'ch.qos.logback:logback-classic:1.1.2'
+	compile 'ma.glasnost.orika:orika-core:1.4.5'
+}
+
+sourceSets {
+	main {
+		java {
+			srcDir 'src'
+		}
+		resources {
+			srcDir 'src'
+		}
+	}
+}
+
+uploadArchives {
+	repositories {
+		flatDir {
+			dirs 'repos'
+		}
+	}
+}
+
+task copyToLib( type: Copy ) {
+	into "$buildDir/libs/lib"
+	from configurations.runtime
+}
+mainClassName = 'test.TestDAO'
+jar { dependsOn copyToLib
+	manifest {	
+		attributes 'Main-Class': mainClassName
+		def manifestCp = configurations.runtime.files.collect  {
+			File file = it
+			"lib/${file.name}"
+		}.join(' ')
+		
+		configurations.runtime.getAllDependencies().withType(ProjectDependency).each {dep->
+			def depProj = dep.getDependencyProject()
+			def libFilePaths = project(depProj.path).libsDir.list().collect{ inFile-> "lib/${inFile}"  }.join(' ')
+			logger.info"Adding libs from project ${depProj.name}: [- ${libFilePaths} -]"
+			manifestCp += ' '+libFilePaths
+		}
+		
+		logger.lifecycle("")
+		logger.lifecycle("---Manifest-Class-Path: ${manifestCp}")
+		attributes 'Class-Path': manifestCp
+	}
+}
+
